@@ -1,0 +1,91 @@
+---
+title: "ESM 244 Lab 5"
+author: "Patrick Pelegri-O'Day"
+date: "2/3/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(here)
+
+### for part 1, PCA:
+library(ggfortify)
+library(palmerpenguins)
+library(patchwork)
+
+### for part 2, ggplot customization:
+library(readxl)
+library(gghighlight)
+library(lubridate)
+library(plotly)
+```
+
+## Part 1: PCA (Principal Components Analysis)
+
+```{r}
+penguin_clean <- penguins %>% 
+  drop_na()
+
+penguin_pca <- penguin_clean %>% 
+  select(body_mass_g, ends_with('_mm')) %>% 
+  scale() %>% # make all variables on same scale. Another option is use `scale = TRUE` argument within prcomp()
+  prcomp()
+```
+
+#### Biplot by hand
+```{r}
+loadings_df <- data.frame(penguin_pca$rotation) %>% 
+  mutate(axis = row.names(.)) 
+
+new_pts_df <- data.frame(penguin_pca$x) # refers to all penguin observations based on their coordinates with the new PC system as opposed to the original axes
+
+ggplot() + 
+  geom_point(data = new_pts_df, aes(x = PC1, y = PC2), color = 'blue') +
+  geom_segment(data = loadings_df, x = 0, y = 0,
+               aes(xend = PC1, yend = PC2, group = axis),
+               arrow = arrow(length = unit(0.25, 'cm'))) +
+  geom_text(data = loadings_df,
+            aes(x = PC1, y = PC2, label = axis),
+            vjust = 0, nudge_y = .02) +
+  theme_minimal()
+```
+
+```{r}
+autoplot(penguin_pca,
+         data = penguin_clean,
+         loadings = TRUE,
+         colour = 'species', # gotta use the british spelling for this package
+         loadings.label = TRUE, # show labels of original vectors
+         loadings.colour = 'black',
+         loadings.label.colour = 'black',
+         loadings.label.vjust = -0.5) +
+  scale_color_manual(values = c('darkslateblue', 'cornsilk4', 'orange4')) +
+  theme_minimal()
+```
+
+## Screeplot by hand
+
+```{r}
+sd_vec <- penguin_pca$sdev
+var_vec <- sd_vec^2
+
+pc_names <- colnames(penguin_pca$rotation)
+pct_expl_df <- data.frame(v = var_vec,
+                          pct_v = var_vec / sum(var_vec),
+                          pc = fct_inorder(pc_names)) %>% 
+  mutate(pct_lbl = paste0(round(pct_v * 100, 1), '%')) # converts arguments to strings then concatenates them
+
+ggplot(pct_expl_df, aes(x = pc, y = v)) +
+  geom_col() + 
+  geom_text(aes(label = pct_label, vjust = 0, nudge_y = 0.0005)) +
+  labs(x = "principle component", y = "variance estimated")
+```
+
+```{r}
+screeplot(penguin_pca, type = 'lines')
+screeplot(penguin_pca, type = 'barplot')
+```
+
